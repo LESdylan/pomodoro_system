@@ -68,4 +68,4 @@ void		Config::setNotificationEnabled(bool enabled)				{	notificationEnabled = en
 void		Config::setBreakDuration(int duration)						{	breakDuration = duration;		}
 void		Config::setNotificationSound(const std::string& soundName)	{	notificationSound = soundName;	}
 void		Config::setRepeatCycle(int newCycle)						{	repeatCycle = newCycle;			}
-void		Config::setLongBreakDuration(int duration)						{	longBreakDuration = duration;	}
+void		Config::setLongBreakDuration(int duration)					{	longBreakDuration = duration;	}
