@@ -1,51 +1,55 @@
 #include "timer.h"
+#include <unistd.h>
 
-/**
- * Define the constructor parameter
- * and the default value for private var
- */
-Timer::Timer(int workDuration, int breakDuration)
-	: workDuration(workDuration), breakDuration(breakDuration), isRunning(false), isBreakTime(false) {}
-
-void    Timer::start()
+Timer::Timer(int workDuration, int breakDuration) 
+	: workDuration(workDuration), breakDuration(breakDuration), startTime(0), isRunning(false), isBreakTime(false)
 {
+}
+
+void Timer::start()
+{
+	startTime = time(0);
 	isRunning = true;
 	isBreakTime = false;
-	std::cout << "Pomodoro timer started for " << workDuration << " minutes." << std::endl; 
 }
 
-void    Timer::stop()
+void Timer::stop()
 {
 	isRunning = false;
-	std::cout << "Pomodoro timer stopped." << std::endl;
+	startTime = 0;
 }
 
-void	Timer::reset()
+void Timer::reset()
 {
 	stop();
-	std::cout << "Pomodoro timer reset." << std::endl;
 }
 
-void	Timer::startBreak()
+void Timer::startBreak()
 {
+	startTime = time(0);
 	isRunning = true;
 	isBreakTime = true;
-	std::cout << "Break time startef for " << breakDuration << " minutes." << std::endl;
 }
 
-void	Timer::waitForCompletion()
+void Timer::waitForCompletion()
 {
-	if (isRunning)
+	while (isRunning && getRemainingTime() > 0)
 	{
-		if (isBreakTime)
-			std::this_thread::sleep_for(std::chrono::minutes(breakDuration));
-		else
-			std::this_thread::sleep_for(std::chrono::minutes(workDuration));
-		isRunning = false;
+		sleep(1);
 	}
+	isRunning = false;
 }
-/**GETTERS */
-int	Timer::getRemainingTime() const
+
+int Timer::getRemainingTime() const
 {
-	return (remainingTime);
+	if (!isRunning)
+		return (0);
+	
+	time_t	currentTime = time(0);
+	int		elapsed = static_cast<int>(currentTime - startTime);
+	int		duration = isBreakTime ? breakDuration : workDuration;
+	int		durationInSeconds = duration * 60;
+	int		remaining = durationInSeconds - elapsed;
+	
+	return (remaining > 0 ? remaining : 0);
 }

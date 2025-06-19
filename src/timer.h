@@ -1,26 +1,60 @@
 #ifndef TIMER_H
-# define	TIMER_H
+#define TIMER_H
 
 #include <iostream>
 #include <string>
-#include <chrono>
-#include <thread>
+#include <ctime>
 
+/**
+ * @brief Timer class for managing work and break sessions in Pomodoro technique
+ */
 class Timer
 {
-	public:
-		int	workDuration;
-		int breakDuration;
-		int remainingTime;
-		bool isRunning;
-		int	isBreakTime;
-	public:
-		Timer(int workDuration, int breakDuration);
-		void	start();
-		void	stop();
-		void	reset();
-		void	startBreak();
-		void	waitForCompletion();
-		int		getRemainingTime() const;
+private:
+	int		workDuration;
+	int		breakDuration;
+	time_t	startTime;
+	bool	isRunning;
+	bool	isBreakTime;
+
+public:
+	/**
+	 * @brief Constructor for Timer class
+	 * @param workDuration Duration of work session in minutes
+	 * @param breakDuration Duration of break session in minutes
+	 */
+	Timer(int workDuration, int breakDuration);
+
+	/**
+	 * @brief Start a work session timer
+	 */
+	void	start();
+
+	/**
+	 * @brief Stop the current timer session
+	 */
+	void	stop();
+
+	/**
+	 * @brief Reset the timer to initial state
+	 */
+	void	reset();
+
+	/**
+	 * @brief Start a break session timer
+	 */
+	void	startBreak();
+
+	/**
+	 * @brief Wait for the current session to complete
+	 */
+	void	waitForCompletion();
+
+	/**
+	 * @brief Get remaining time in current session
+	 * @return Remaining time in seconds
+	 */
+	int		getRemainingTime() const;
 };
+
 #endif
