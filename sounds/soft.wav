@@ -1,0 +1,2 @@
+# Soft sound - Generate with: speaker-test -t sine -f 600 -l 1 -s 1 2>/dev/null | head -c 10000 > soft.wav
+# This file should contain a soft, gentle notification sound
