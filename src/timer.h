@@ -11,11 +11,11 @@
 class Timer
 {
 private:
-	int		workDuration;
-	int		breakDuration;
-	time_t	startTime;
-	bool	isRunning;
-	bool	isBreakTime;
+	int		m_workDuration;
+	int		m_breakDuration;
+	time_t	m_startTime;
+	bool	m_isRunning;
+	bool	m_isBreakTime;
 
 public:
 	/**
@@ -24,6 +24,7 @@ public:
 	 * @param breakDuration Duration of break session in minutes
 	 */
 	Timer(int workDuration, int breakDuration);
+	~Timer();
 
 	/**
 	 * @brief Start a work session timer
@@ -55,6 +56,10 @@ public:
 	 * @return Remaining time in seconds
 	 */
 	int		getRemainingTime() const;
+
+private:
+	Timer(const Timer& other);					// Non-copyable
+	Timer& operator=(const Timer& other);		// Non-assignable
 };
 
-#endif
+#endif // TIMER_H

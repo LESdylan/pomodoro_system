@@ -11,20 +11,28 @@
 class Config 
 {
 private:
-	std::string	filename; ///< Configuration file path
-	int			workDuration; ///< Work session duration in minutes
-	int			breakDuration; ///< Break session duration in minutes
-	int			longBreakDuration; ///< Long break session duration in minutes
-	int			repeatCycle; ///< Number of cycles before long break
-	bool		notificationEnabled; ///< Notification enabled flag
-	std::string	notificationSound; ///< Notification sound file path
+	std::string	m_filename; ///< Configuration file path
+	int			m_workDuration; ///< Work session duration in minutes
+	int			m_breakDuration; ///< Break session duration in minutes
+	int			m_longBreakDuration; ///< Long break session duration in minutes
+	int			m_repeatCycle; ///< Number of cycles before long break
+	bool		m_notificationEnabled; ///< Notification enabled flag
+	std::string	m_notificationSound; ///< Notification sound file path
+	std::string	m_workMessage;
+	std::string	m_breakMessage;
+	std::string	m_longBreakMessage;
+	std::string	m_workSound;
+	std::string	m_breakSound;
+	std::string	m_longBreakSound;
+	std::string	m_overlayPrompt;
 
 public:
 	/**
 	 * @brief Constructor for Config class
 	 * @param filename Path to configuration file
 	 */
-	Config(const std::string& filename);
+	explicit Config(const std::string& filename);
+	~Config();
 
 	/**
 	 * @brief Load settings from configuration file
@@ -107,6 +115,21 @@ public:
 	 * @param duration Duration in minutes
 	 */
 	void		setLongBreakDuration(int duration);
+
+	// Add new getters
+	std::string	getWorkMessage() const;
+	std::string	getBreakMessage() const;
+	std::string	getLongBreakMessage() const;
+	std::string	getWorkSound() const;
+	std::string	getBreakSound() const;
+	std::string	getLongBreakSound() const;
+	std::string	getOverlayPrompt() const;
+
+private:
+	Config(const Config& other);			// Non-copyable
+	Config& operator=(const Config& other);	// Non-assignable
+	
+	std::string	constructSoundPath(const std::string& soundName) const;
 };
 
-#endif
+#endif // CONFIG_HPP

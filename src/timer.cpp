@@ -2,21 +2,29 @@
 #include <unistd.h>
 
 Timer::Timer(int workDuration, int breakDuration) 
-	: workDuration(workDuration), breakDuration(breakDuration), startTime(0), isRunning(false), isBreakTime(false)
+	: m_workDuration(workDuration)
+	, m_breakDuration(breakDuration)
+	, m_startTime(0)
+	, m_isRunning(false)
+	, m_isBreakTime(false)
+{
+}
+
+Timer::~Timer()
 {
 }
 
 void Timer::start()
 {
-	startTime = time(0);
-	isRunning = true;
-	isBreakTime = false;
+	m_startTime = time(0);
+	m_isRunning = true;
+	m_isBreakTime = false;
 }
 
 void Timer::stop()
 {
-	isRunning = false;
-	startTime = 0;
+	m_isRunning = false;
+	m_startTime = 0;
 }
 
 void Timer::reset()
@@ -26,30 +34,29 @@ void Timer::reset()
 
 void Timer::startBreak()
 {
-	startTime = time(0);
-	isRunning = true;
-	isBreakTime = true;
+	m_startTime = time(0);
+	m_isRunning = true;
+	m_isBreakTime = true;
 }
 
 void Timer::waitForCompletion()
 {
-	while (isRunning && getRemainingTime() > 0)
-	{
+	while (m_isRunning && getRemainingTime() > 0) {
 		sleep(1);
 	}
-	isRunning = false;
+	m_isRunning = false;
 }
 
 int Timer::getRemainingTime() const
 {
-	if (!isRunning)
-		return (0);
+	if (!m_isRunning)
+		return 0;
 	
-	time_t	currentTime = time(0);
-	int		elapsed = static_cast<int>(currentTime - startTime);
-	int		duration = isBreakTime ? breakDuration : workDuration;
-	int		durationInSeconds = duration * 60;
-	int		remaining = durationInSeconds - elapsed;
+	const time_t currentTime = time(0);
+	const int elapsed = static_cast<int>(currentTime - m_startTime);
+	const int duration = m_isBreakTime ? m_breakDuration : m_workDuration;
+	const int durationInSeconds = duration * 60;
+	const int remaining = durationInSeconds - elapsed;
 	
 	return (remaining > 0 ? remaining : 0);
 }

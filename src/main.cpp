@@ -6,173 +6,198 @@
 #include <ctime>
 #include <cstring>
 #include <sstream>
+#include <sys/wait.h>
 #include "config.hpp"
 #include "notification.h"
 #include "timer.h"
 
-/**
- * @brief Convert integer to string (C++98 compatible)
- * @param value Integer value to convert
- * @return String representation of the integer
- */
-std::string intToString(int value)
-{
-	std::ostringstream oss;
-	
-	oss << value;
-	return (oss.str());
-}
-
-typedef struct s_var
-{
-	bool		running;
-	std::string	logFile;
-}				t_var;
-
-typedef struct s_app_state
-{
-	bool		running;
-	std::string	logFile;
-	bool		daemonMode;
-	
-	s_app_state() : running(true), logFile("default.log"), daemonMode(false) {}
-	
-	void initialize(int /* argc */, char** /* argv */) {}
-} t_app_state;
-
-/**
- * @brief Check if application should run in daemon mode
- * @param argc Number of command line arguments
- * @param argv Array of command line arguments
- * @param g_var Global variables structure
- * @return True if daemon mode is requested
- */
-bool isDaemon(int argc, char **argv, t_var *g_var)
-{
-	bool	daemonMode = false;
-	int		i = 1;
-
-	while (i < argc)
+namespace {
+	/**
+	 * @brief Convert integer to string (C++98 compatible)
+	 */
+	std::string intToString(int value)
 	{
-		std::string arg = argv[i];
-		if (arg == "--daemon" || arg == "-d")
-		{
-			daemonMode = true;
-			break;
-		}
-		i++;
+		std::ostringstream oss;
+		oss << value;
+		return oss.str();
 	}
-	if (daemonMode)
-	{
-		g_var->logFile = std::string(getenv("HOME")) + "/.local/share/pomodoro-timer/logs/pomodoro-timer.log";
-		system("mkdir -p ~/.local/share/pomodoro-timer/logs");
-	}
-	else
-		g_var->logFile = "pomodoro-timer.log";
-	return (daemonMode);
-}
 
-/**
- * @brief Log a message to file and console
- * @param message Message to log
- * @param g_var Global variables structure
- */
-void logMessage(const std::string& message, t_var *g_var)
-{
-	std::ofstream	log(g_var->logFile.c_str(), std::ios::app);
-	
-	if (log.is_open())
+	struct AppState
 	{
-		time_t	now = time(0);
-		char*	timeStr = ctime(&now);
+		bool		running;
+		std::string	logFile;
 		
-		timeStr[strlen(timeStr) - 1] = '\0';
-		log << "[" << timeStr << "] " << message << std::endl;
-		log.close();
-	}
-	std::cout << message << std::endl;
-}
+		AppState() : running(true), logFile("/var/log/pomodoro_timer.log") {}
+	};
 
-/**
- * @brief Handle system signals for graceful shutdown
- * @param signal Signal number received
- */
-void signal_handler(int signal)
-{
-	if (signal == SIGTERM || signal == SIGINT)
-	{
-		std::cout << "Received signal " << signal << ", shutting down..." << std::endl;
-		exit(0);
-	}
-}
+	AppState g_appState;
 
-/**
- * @brief Main daemon loop for running Pomodoro sessions
- * @param g_var Global variables structure
- * @param config Configuration object
- * @param timer Timer object
- * @param notification Notification object
- */
-void run_daemon(t_var *g_var, Config& config, Timer& timer, Notification& notification)
-{
-	while (g_var->running)
+	/**
+	 * @brief Handle system signals for graceful shutdown
+	 */
+	void signalHandler(int signal)
 	{
-		logMessage("Starting work session for " + intToString(config.getWorkDuration()) + " minutes", g_var);
-		timer.start();
-		timer.waitForCompletion();
-		if (!g_var->running)
-			break;
-		logMessage("Work session completed - break time!", g_var);
-		notification.showNotification("Time to take a break!");
-		notification.playSound(config.getNotificationSound());
-		timer.startBreak();
-		timer.waitForCompletion();
-		if (!g_var->running) 
-			break;
-		logMessage("Break completed - back to work!", g_var);
-		notification.showNotification("Break time is over! Get back to work!");
-		notification.playSound(config.getNotificationSound());
-		if (g_var->running)
-			sleep(1); 
+		if (signal == SIGTERM || signal == SIGINT) {
+			std::cout << "Received signal " << signal << ", shutting down..." << std::endl;
+			g_appState.running = false;
+			exit(0);
+		}
 	}
-	logMessage("Pomodoro Timer daemon stopped", g_var);
+
+	/**
+	 * @brief Check if application should run in daemon mode
+	 */
+	bool isDaemonMode(int argc, char **argv, AppState* appState)
+	{
+		bool daemonMode = false;
+		
+		for (int i = 1; i < argc; ++i) {
+			const std::string arg = argv[i];
+			if (arg == "--daemon" || arg == "-d") {
+				daemonMode = true;
+				break;
+			}
+		}
+		
+		if (daemonMode) {
+			const char* home = getenv("HOME");
+			if (home) {
+				appState->logFile = std::string(home) + "/.local/share/pomodoro-timer/logs/pomodoro-timer.log";
+				system("mkdir -p ~/.local/share/pomodoro-timer/logs");
+			}
+		} else {
+			appState->logFile = "pomodoro-timer.log";
+		}
+		
+		return daemonMode;
+	}
+
+	/**
+	 * @brief Parse command line arguments for config path
+	 */
+	std::string getConfigPath(int argc, char **argv)
+	{
+		for (int i = 1; i < argc; ++i) {
+			const std::string arg = argv[i];
+			if (arg == "--config" && i + 1 < argc)
+				return argv[i + 1];
+		}
+		return "config/settings.cfg";
+	}
+
+	/**
+	 * @brief Log a message to file and console
+	 */
+	void logMessage(const std::string& message, const AppState* appState)
+	{
+		std::ofstream log(appState->logFile.c_str(), std::ios::app);
+		
+		if (log.is_open()) {
+			time_t now = time(0);
+			char* timeStr = ctime(&now);
+			timeStr[strlen(timeStr) - 1] = '\0';
+			log << "[" << timeStr << "] " << message << std::endl;
+			log.close();
+		}
+		std::cout << message << std::endl;
+	}
+
+	/**
+	 * @brief Run the overlay program to block interaction during breaks
+	 */
+	void runOverlay(int seconds, const std::string& prompt)
+	{
+		const pid_t pid = fork();
+		if (pid == 0) {
+			// Child process: run overlay
+			const std::string secStr = intToString(seconds);
+			
+			// Try different paths for overlay binary
+			execlp("overlay_timer_qt", "overlay_timer_qt", secStr.c_str(), prompt.c_str(), static_cast<char*>(0));
+			execlp("./overlay_timer_qt", "overlay_timer_qt", secStr.c_str(), prompt.c_str(), static_cast<char*>(0));
+			_exit(1);
+		} else if (pid > 0) {
+			int status;
+			waitpid(pid, &status, 0);
+		}
+	}
+
+	/**
+	 * @brief Main daemon loop for running Pomodoro sessions
+	 */
+	void runDaemon(AppState* appState, Config& config, Timer& timer, Notification& notification)
+	{
+		int cycleCount = 0;
+		
+		while (appState->running) {
+			// Work session
+			logMessage("Starting work session for " + intToString(config.getWorkDuration()) + " minutes", appState);
+			notification.showNotification(config.getWorkMessage());
+			notification.playSound(config.getWorkSound());
+			timer.start();
+			timer.waitForCompletion();
+			
+			if (!appState->running)
+				break;
+
+			// Break or long break
+			cycleCount++;
+			const bool isLongBreak = (cycleCount % config.getCycle() == 0);
+			const int breakDuration = isLongBreak ? config.getLongBreakDuration() : config.getBreakDuration();
+			const std::string breakMsg = isLongBreak ? config.getLongBreakMessage() : config.getBreakMessage();
+			const std::string breakSound = isLongBreak ? config.getLongBreakSound() : config.getBreakSound();
+
+			const std::string breakType = isLongBreak ? "Long break" : "Break";
+			logMessage(breakType + " starting for " + intToString(breakDuration) + " minutes", appState);
+			notification.showNotification(breakMsg);
+			notification.playSound(breakSound);
+
+			// Block screen with overlay
+			runOverlay(breakDuration * 60, config.getOverlayPrompt());
+
+			timer.startBreak();
+			timer.waitForCompletion();
+			
+			if (!appState->running) 
+				break;
+				
+			logMessage(breakType + " completed - back to work!", appState);
+			notification.showNotification("Break time is over! Get back to work!");
+			notification.playSound(config.getWorkSound());
+			
+			if (appState->running)
+				sleep(1);
+		}
+		logMessage("Pomodoro Timer daemon stopped", appState);
+	}
 }
 
 /**
  * @brief Main function - entry point of the application
- * @param argc Number of command line arguments
- * @param argv Array of command line arguments
- * @return Exit status
  */
 int main(int argc, char **argv)
 {
-	t_var	g_var;
+	isDaemonMode(argc, argv, &g_appState);
 	
-	g_var.running = true;
-	g_var.logFile = "/var/log/pomodoro_timer.log";
+	signal(SIGTERM, signalHandler);
+	signal(SIGINT, signalHandler);
+	signal(SIGQUIT, signalHandler);
+	
+	logMessage("Pomodoro Timer Starting...", &g_appState);
 
-	bool daemonMode = isDaemon(argc, argv, &g_var);
-	
-	signal(SIGTERM, signal_handler);
-	signal(SIGINT, signal_handler);
-	signal(SIGQUIT, signal_handler);
-	
-	logMessage("Pomodoro Timer Starting...", &g_var);
-	
-	std::string configPath = daemonMode ?
-		std::string(getenv("HOME")) + "/Documents/Personal_project/pomodoro_system/config/settings.cfg" :
-		"config/settings.cfg";
-	
+	const std::string configPath = getConfigPath(argc, argv);
+	std::cout << "Using config file: " << configPath << std::endl;
+
 	Config config(configPath);
 	config.loadSettings();
 	
 	logMessage("Configuration loaded - work: " + intToString(config.getWorkDuration()) +
-				"min, break: " + intToString(config.getBreakDuration()) + "min", &g_var);
+			  "min, break: " + intToString(config.getBreakDuration()) + "min", &g_appState);
 	
 	Timer timer(config.getWorkDuration(), config.getBreakDuration());
 	Notification notification;
 	
-	run_daemon(&g_var, config, timer, notification);
+	runDaemon(&g_appState, config, timer, notification);
 	
-	return (0);
+	return 0;
 }

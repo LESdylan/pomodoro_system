@@ -1,0 +1,1 @@
+Environment="PULSE_SERVER=unix:/run/user/%U/pulse/native"

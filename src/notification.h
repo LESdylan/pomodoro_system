@@ -10,22 +10,16 @@
  */
 class Notification
 {   
-private:
-	std::string message;
-	std::string soundFile;
-
 public:
-	/**
-	 * @brief Display a desktop notification
-	 * @param message The message to display in the notification
-	 */
-	void	showNotification(const std::string& message);
+	Notification();
+	~Notification();
 
-	/**
-	 * @brief Play a sound file
-	 * @param soundFile Path to the sound file to play
-	 */
-	void	playSound(const std::string& soundFile);
+	void showNotification(const std::string& message);
+	void playSound(const std::string& soundFile);
+
+private:
+	Notification(const Notification& other);			// Non-copyable
+	Notification& operator=(const Notification& other);	// Non-assignable
 };
 
-#endif
+#endif // NOTIFICATION_H
