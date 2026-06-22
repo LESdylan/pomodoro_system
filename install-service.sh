@@ -12,6 +12,9 @@ SYSTEMD_USER_DIR="$HOME/.config/systemd/user"
 # Create directories
 mkdir -p "$BINDIR" "$LOGDIR" "$SOUNDDIR" "$CONFIGDIR" "$SYSTEMD_USER_DIR"
 
+# Stop any running instance so we can overwrite the binary ("Text file busy").
+systemctl --user stop pomodoro-timer.service 2>/dev/null || true
+
 # Copy binary, config, and sounds
 cp ./pomodoro "$BINDIR/"
 cp ./overlay_timer_qt "$BINDIR/" 2>/dev/null || echo "overlay_timer_qt not built (daemon will use native lock only)"
