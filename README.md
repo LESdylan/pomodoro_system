@@ -124,9 +124,11 @@ Flat `key=value`. Durations are in minutes.
 ## Notifications (email + phone) — optional
 
 A small **custom Alpine image** (`notifier/Dockerfile`, just `python3` + standard library)
-sends an HTML email and/or an ntfy phone push at break start and end. Nothing is installed
-on the host. The daemon calls `scripts/pomodoro-notify.sh` in the background — a no-op if
-docker, the image, or `.env` is missing, so it never delays a break.
+sends notifications. **Email** fires at both break start and end; the **ntfy phone push**
+fires only when it's time to **come back** (the push exists to call you back, so the
+"break starting" one is skipped). Nothing is installed on the host. The daemon calls
+`scripts/pomodoro-notify.sh` in the background — a no-op if docker, the image, or `.env`
+is missing, so it never delays a break.
 
 ### Setup
 

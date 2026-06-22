@@ -159,12 +159,16 @@ namespace {
 	 * the .env file are missing, so the daemon is never delayed or affected.
 	 *   event : "break-start" or "back-to-work"
 	 */
-	void runNotifier(const std::string& event, const std::string& detail)
+	void runNotifier(const std::string& event, const std::string& detail, bool wait = false)
 	{
 		const std::string path = findScript("pomodoro-notify.sh");
-		const std::string cmd =
-			"\"" + path + "\" " + event + " \"" + detail + "\" >/dev/null 2>&1 &";
-		system(cmd.c_str());
+		std::string cmd = "\"" + path + "\" " + event + " \"" + detail + "\"";
+		if (wait)
+			system(cmd.c_str());            // foreground + visible (used by --test-break)
+		else {
+			cmd += " >/dev/null 2>&1 &";     // background + silent (used by the daemon)
+			system(cmd.c_str());
+		}
 	}
 
 	/**
@@ -371,7 +375,7 @@ namespace {
 				   intToString(seconds) + "s", appState);
 		notification.showNotification(config.getBreakMessage());
 		notification.playSound(config.getBreakSound());
-		runNotifier("break-start", "Test break - " + intToString(seconds) + "s");
+		runNotifier("break-start", "Test break - " + intToString(seconds) + "s", true);
 
 		runEnforcedBreak(seconds, config, appState, config.getOverlayPrompt());
 
@@ -381,7 +385,7 @@ namespace {
 		logMessage("TEST BREAK: complete - back to work!", appState);
 		notification.showNotification("Break time is over! Get back to work!");
 		notification.playSound(config.getWorkSound());
-		runNotifier("back-to-work", "Focus for " + intToString(config.getWorkDuration()) + " min");
+		runNotifier("back-to-work", "Focus for " + intToString(config.getWorkDuration()) + " min", true);
 		return 0;
 	}
 

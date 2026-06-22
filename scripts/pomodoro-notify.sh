@@ -33,7 +33,10 @@ done
 # Image must already be built (done at install time / `make notifier-image`).
 docker image inspect "$IMAGE" >/dev/null 2>&1 || exit 0
 
-# Fire and forget so the daemon is never blocked by SMTP / network latency.
-docker run --rm --env-file "$ENV_FILE" "$IMAGE" "$EVENT" "$DETAIL" >/dev/null 2>&1 &
+# Run the notifier in the FOREGROUND. The caller (the daemon) backgrounds this whole
+# script, so it stays non-blocking -- but keeping docker in the foreground here means a
+# single level of backgrounding, so the send always completes even if the caller exits
+# immediately (e.g. `make test`). Output goes to the caller, which decides redirection.
+docker run --rm --env-file "$ENV_FILE" "$IMAGE" "$EVENT" "$DETAIL"
 
 exit 0
