@@ -50,3 +50,23 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# Secrets for the notifier (never commit)
+.env
+
+# Qt build artifacts
+Makefile.qt
+*.moc
+moc_predefs.h
+.qmake.stash
+
+# Daemon runtime log
+pomodoro-timer.log
+
+# Compiled binaries (built via make)
+/pomodoro
+/overlay_timer_qt
+
+# Python bytecode
+__pycache__/
+*.pyc

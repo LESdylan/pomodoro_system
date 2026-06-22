@@ -1,5 +1,7 @@
 CC = c++
 CFLAGS = -Wall -Wextra -std=c++98
+# Auto-detect a qmake (Qt5 or Qt6 -- the overlay builds on both).
+QMAKE := $(shell command -v qmake 2>/dev/null || command -v qmake6 2>/dev/null || command -v qmake-qt5 2>/dev/null || command -v qmake-qt6 2>/dev/null)
 SRCDIR = src
 SOURCES = $(SRCDIR)/main.cpp $(SRCDIR)/timer.cpp $(SRCDIR)/notification.cpp $(SRCDIR)/config.cpp
 OBJECTS = $(SOURCES:.cpp=.o)
@@ -15,9 +17,13 @@ $(SRCDIR)/%.o: $(SRCDIR)/%.cpp
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OVERLAY_TARGET): $(SRCDIR)/overlay_timer_qt.cpp
-	qmake -o Makefile.qt overlay_timer_qt.pro
-	make -f Makefile.qt
-	test -f overlay_timer_qt && mv overlay_timer_qt $(OVERLAY_TARGET) || echo "overlay_timer_qt already named correctly"
+	@test -n "$(QMAKE)" || { echo "ERROR: qmake (Qt5 or Qt6) not found. Install qtbase/qt5-qtbase, or build daemon-only with 'make pomodoro'."; exit 1; }
+	$(QMAKE) -o Makefile.qt overlay_timer_qt.pro
+	$(MAKE) -f Makefile.qt
+	test -f overlay_timer_qt && mv -f overlay_timer_qt $(OVERLAY_TARGET) || echo "overlay_timer_qt already named correctly"
+
+notifier-image:
+	docker build -t pomodoro-notifier:latest ./notifier
 
 install-service: $(TARGET) $(OVERLAY_TARGET)
 	chmod +x install-service.sh
@@ -38,4 +44,4 @@ fclean: clean
 
 re: fclean all
 
-.PHONY: all clean re install-service uninstall-service
+.PHONY: all clean re install-service uninstall-service notifier-image

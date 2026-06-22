@@ -6,7 +6,6 @@
 #include <QFont>
 #include <QKeyEvent>
 #include <QPropertyAnimation>
-#include <QDesktopWidget>
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QGraphicsDropShadowEffect>
@@ -15,13 +14,91 @@
 #include <QPainterPath>
 #include <QFontDatabase>
 #include <cmath>
+#ifdef HAVE_PAM
+#include <cstdlib>
+#include <cstring>
+#include <unistd.h>
+#include <pwd.h>
+#include <security/pam_appl.h>
+#endif
+
+namespace {
+#ifdef HAVE_PAM
+	// Resolve the current user's login name.
+	QString currentUserName()
+	{
+		const char* u = getenv("USER");
+		if (u && *u)
+			return QString::fromLocal8Bit(u);
+		struct passwd* pw = getpwuid(getuid());
+		if (pw && pw->pw_name)
+			return QString::fromLocal8Bit(pw->pw_name);
+		return QString();
+	}
+
+	// PAM conversation: hand the stored password to every prompt PAM asks for.
+	int pamConv(int num_msg, const struct pam_message** msg,
+				struct pam_response** resp, void* appdata_ptr)
+	{
+		if (num_msg <= 0)
+			return PAM_CONV_ERR;
+		struct pam_response* responses =
+			(struct pam_response*)calloc(num_msg, sizeof(struct pam_response));
+		if (!responses)
+			return PAM_BUF_ERR;
+		const char* pw = static_cast<const char*>(appdata_ptr);
+		for (int i = 0; i < num_msg; ++i) {
+			responses[i].resp_retcode = 0;
+			responses[i].resp = 0;
+			if (msg[i]->msg_style == PAM_PROMPT_ECHO_OFF ||
+				msg[i]->msg_style == PAM_PROMPT_ECHO_ON)
+				responses[i].resp = strdup(pw ? pw : "");
+		}
+		*resp = responses;
+		return PAM_SUCCESS;
+	}
+
+	// Authenticate the current user via PAM. Tries a few service names so this works
+	// across distros even when /etc/pam.d/pomodoro was not installed.
+	bool pamAuthenticate(const QString& password)
+	{
+		const QByteArray userBa = currentUserName().toLocal8Bit();
+		if (userBa.isEmpty())
+			return false;
+		const QByteArray pwBa = password.toLocal8Bit();
+
+		const char* services[] = { "pomodoro", "system-auth", "login", 0 };
+		for (int s = 0; services[s]; ++s) {
+			struct pam_conv conv;
+			conv.conv = pamConv;
+			conv.appdata_ptr = const_cast<char*>(pwBa.constData());
+			pam_handle_t* pamh = 0;
+			int rc = pam_start(services[s], userBa.constData(), &conv, &pamh);
+			if (rc != PAM_SUCCESS) {
+				if (pamh)
+					pam_end(pamh, rc);
+				continue;
+			}
+			rc = pam_authenticate(pamh, 0);
+			pam_end(pamh, rc);
+			if (rc == PAM_SUCCESS)
+				return true;
+		}
+		return false;
+	}
+#else
+	// Built without libpam: the overlay cannot verify a password, so the break simply
+	// auto-ends at the timer. Install libpam-dev and rebuild to enable the skip prompt.
+	bool pamAuthenticate(const QString&) { return false; }
+#endif
+}
 
 class OverlayTimer : public QWidget
 {
 	Q_OBJECT
 public:
 	OverlayTimer(int seconds, const QString& prompt, QWidget* parent = 0)
-		: QWidget(parent), totalSeconds(seconds), remaining(seconds), askConfirm(false), fadeOut(false), promptMsg(prompt)
+		: QWidget(parent), totalSeconds(seconds), remaining(seconds), passwordMode(false), authFailed(false), fadeOut(false), promptMsg(prompt)
 	{
 		setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
 		setAttribute(Qt::WA_ShowWithoutActivating, false);
@@ -128,9 +205,9 @@ protected:
 		// Elegant status and branding
 		drawElegantStatusAndBranding(p, centerX, centerY, containerSize);
 		
-		// Confirmation prompt
-		if (askConfirm) {
-			drawPremiumConfirmationPrompt(p, centerX, centerY, containerSize);
+		// Password prompt (skip the break early)
+		if (passwordMode) {
+			drawPasswordPrompt(p, centerX, centerY, containerSize);
 		}
 	}
 
@@ -395,17 +472,21 @@ private:
 		p.drawText(subtitleRect, Qt::AlignCenter, subtitle);
 		
 		// Enhanced instruction with dynamic pulsing
-		if (!askConfirm) {
+		if (!passwordMode) {
 			QFont instructionFont = subtitleFont;
 			instructionFont.setPointSize(instructionFontSize);
 			instructionFont.setWeight(QFont::Normal);
 			p.setFont(instructionFont);
-			
+
 			// Dynamic pulsing effect
 			int alpha = 100 + (int)(80 * pulseValue);
 			p.setPen(QColor(180, 200, 240, alpha));
-			
-			QString instruction = "⚡ Press ESC for urgent interruption";
+
+#ifdef HAVE_PAM
+			QString instruction = "🔑 Type your password + Enter to end the break early";
+#else
+			QString instruction = "⏳ The break will end automatically — please step away";
+#endif
 			QRect instructionRect(centerX - containerSize/1.8, 
 								 centerY + containerSize/2.5 + subtitleFontSize, 
 								 containerSize * 2/1.8, instructionFontSize + 8);
@@ -428,7 +509,7 @@ private:
 		p.drawText(percentRect, Qt::AlignCenter, percentText);
 	}
 
-	void drawPremiumConfirmationPrompt(QPainter& p, int centerX, int centerY, int containerSize)
+	void drawPasswordPrompt(QPainter& p, int centerX, int centerY, int containerSize)
 	{
 		// Enhanced confirmation dialog
 		int promptWidth = containerSize * 0.85;
@@ -485,36 +566,73 @@ private:
 		}
 		
 		p.setFont(promptFont);
-		p.setPen(QColor(255, 255, 255, 255));
-		
-		QString msg = "⚠️  " + promptMsg;
-		QRect msgRect = promptBg.adjusted(25, 15, -25, -promptHeight/2);
-		p.drawText(msgRect, Qt::AlignCenter, msg);
-		
-		// Enhanced instructions with key indicators
+
+		// Title (or the error after a wrong password) in the upper third
+		QString title = authFailed ? QString("❌  Incorrect password — try again") : ("🔒  " + promptMsg);
+		p.setPen(authFailed ? QColor(120, 20, 20, 255) : QColor(255, 255, 255, 255));
+		QRect titleRect = promptBg.adjusted(25, 12, -25, -promptHeight * 2 / 3);
+		p.drawText(titleRect, Qt::AlignCenter, title);
+
+		// Masked password field in the middle third
+		QString masked = passwordInput.isEmpty()
+			? QString("(type your password)")
+			: QString(passwordInput.length(), QChar(0x2022));
+		p.setPen(passwordInput.isEmpty() ? QColor(255, 255, 255, 150) : QColor(255, 255, 255, 255));
+		QRect pwRect = promptBg.adjusted(25, promptHeight / 3, -25, -promptHeight / 3);
+		p.drawText(pwRect, Qt::AlignCenter, masked);
+
+		// Instructions in the lower third
 		QFont instFont = promptFont;
-		instFont.setPointSize(promptFontSize * 0.75);
+		instFont.setPointSize(promptFontSize * 0.7);
 		instFont.setWeight(QFont::Normal);
 		p.setFont(instFont);
 		p.setPen(QColor(255, 255, 255, 230));
-		
-		QRect instRect = promptBg.adjusted(25, promptHeight/2, -25, -15);
-		p.drawText(instRect, Qt::AlignCenter, "🔑 Y = Skip Break  •  🔑 N = Continue Break");
+		QRect instRect = promptBg.adjusted(25, promptHeight * 2 / 3, -25, -12);
+		p.drawText(instRect, Qt::AlignCenter, "⏎ Enter = unlock   •   Esc = cancel");
 	}
 
 	void keyPressEvent(QKeyEvent* e)
 	{
-		if (!askConfirm && e->key() == Qt::Key_Escape) {
-			askConfirm = true;
+		if (!passwordMode) {
+			// Any key opens the password prompt; seed it if a printable char was typed.
+			passwordMode = true;
+			authFailed = false;
+			passwordInput.clear();
+			const QString t = e->text();
+			if (e->key() != Qt::Key_Escape && !t.isEmpty() && t.at(0).isPrint())
+				passwordInput += t;
 			update();
+			e->accept();
+			return;
 		}
-		else if (askConfirm && (e->key() == Qt::Key_Y || e->key() == Qt::Key_Return)) {
-			startFadeOut();
+
+		switch (e->key()) {
+			case Qt::Key_Escape:
+				passwordMode = false;
+				authFailed = false;
+				passwordInput.clear();
+				break;
+			case Qt::Key_Return:
+			case Qt::Key_Enter:
+				if (pamAuthenticate(passwordInput)) {
+					startFadeOut(); // correct password -> end the break early
+				} else {
+					authFailed = true;
+					passwordInput.clear();
+				}
+				break;
+			case Qt::Key_Backspace:
+				if (!passwordInput.isEmpty())
+					passwordInput.chop(1);
+				break;
+			default: {
+				const QString t = e->text();
+				if (!t.isEmpty() && t.at(0).isPrint())
+					passwordInput += t;
+				break;
+			}
 		}
-		else if (askConfirm && (e->key() == Qt::Key_N || e->key() == Qt::Key_Escape)) {
-			askConfirm = false;
-			update();
-		}
+		update();
 		e->accept();
 	}
 
@@ -533,8 +651,10 @@ private:
 private:
 	int totalSeconds;
 	int remaining;
-	bool askConfirm;
+	bool passwordMode;
+	bool authFailed;
 	bool fadeOut;
+	QString passwordInput;
 	QPropertyAnimation* animation;
 	QPropertyAnimation* pulseAnimation;
 	QString promptMsg;
@@ -593,7 +713,7 @@ int main(int argc, char** argv)
 	}
 	
 	int seconds = atoi(argv[1]);
-	QString overlayPrompt = (argc >= 3) ? argv[2] : "Really urgent to skip? (Y/N)";
+	QString overlayPrompt = (argc >= 3) ? argv[2] : "Enter your password to end the break early";
 	
 	QApplication app(argc, argv);
 	

@@ -25,6 +25,11 @@ private:
 	std::string	m_breakSound;
 	std::string	m_longBreakSound;
 	std::string	m_overlayPrompt;
+	std::string	m_breakMode; ///< Break enforcement mode: "hybrid" (native lock + overlay fallback), "lock" (native only), or "overlay" (Qt window only)
+	std::string	m_lockCommand; ///< Optional override for the lock step; empty = use the built-in pomodoro-session.sh helper
+	bool		m_inhibitSleep; ///< Hold a systemd sleep inhibitor during breaks so the machine never suspends and background jobs keep running
+	int			m_suspendAfterMinutes; ///< Suspend the machine after this many minutes still locked (0 = never; suspend pauses ALL processes)
+	bool		m_enforceBreak; ///< Re-lock if the user unlocks before break_duration elapses
 
 public:
 	/**
@@ -124,6 +129,13 @@ public:
 	std::string	getBreakSound() const;
 	std::string	getLongBreakSound() const;
 	std::string	getOverlayPrompt() const;
+
+	// Break enforcement settings
+	std::string	getBreakMode() const;
+	std::string	getLockCommand() const;
+	bool		getInhibitSleep() const;
+	int			getSuspendAfterMinutes() const;
+	bool		getEnforceBreak() const;
 
 private:
 	Config(const Config& other);			// Non-copyable

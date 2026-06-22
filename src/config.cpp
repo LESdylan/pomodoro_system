@@ -32,7 +32,12 @@ Config::Config(const std::string& filename)
 	, m_workSound("work_bell")
 	, m_breakSound("break_bell")
 	, m_longBreakSound("long_break_bell")
-	, m_overlayPrompt("Really urgent to skip? (Y/N)")
+	, m_overlayPrompt("Enter your password to end the break early")
+	, m_breakMode("hybrid")
+	, m_lockCommand("")
+	, m_inhibitSleep(true)
+	, m_suspendAfterMinutes(0)
+	, m_enforceBreak(false)
 {
 }
 
@@ -77,6 +82,16 @@ void Config::loadSettings()
 			m_longBreakSound = line.substr(17);
 		else if (line.find("overlay_prompt=") == 0)
 			m_overlayPrompt = line.substr(15);
+		else if (line.find("break_mode=") == 0)
+			m_breakMode = line.substr(11);
+		else if (line.find("lock_command=") == 0)
+			m_lockCommand = line.substr(13);
+		else if (line.find("inhibit_sleep=") == 0)
+			m_inhibitSleep = (line.substr(14) == "true");
+		else if (line.find("suspend_after_minutes=") == 0)
+			m_suspendAfterMinutes = stringToInt(line.substr(22));
+		else if (line.find("enforce_break=") == 0)
+			m_enforceBreak = (line.substr(14) == "true");
 	}
 	file.close();
 }
@@ -103,6 +118,11 @@ void Config::saveSettings() const
 	file << "break_sound=" << m_breakSound << std::endl;
 	file << "long_break_sound=" << m_longBreakSound << std::endl;
 	file << "overlay_prompt=" << m_overlayPrompt << std::endl;
+	file << "break_mode=" << m_breakMode << std::endl;
+	file << "lock_command=" << m_lockCommand << std::endl;
+	file << "inhibit_sleep=" << (m_inhibitSleep ? "true" : "false") << std::endl;
+	file << "suspend_after_minutes=" << m_suspendAfterMinutes << std::endl;
+	file << "enforce_break=" << (m_enforceBreak ? "true" : "false") << std::endl;
 	file.close();
 }
 
@@ -165,6 +185,11 @@ std::string Config::getWorkSound() const { return constructSoundPath(m_workSound
 std::string Config::getBreakSound() const { return constructSoundPath(m_breakSound); }
 std::string Config::getLongBreakSound() const { return constructSoundPath(m_longBreakSound); }
 std::string Config::getOverlayPrompt() const { return m_overlayPrompt; }
+std::string Config::getBreakMode() const { return m_breakMode; }
+std::string Config::getLockCommand() const { return m_lockCommand; }
+bool Config::getInhibitSleep() const { return m_inhibitSleep; }
+int Config::getSuspendAfterMinutes() const { return m_suspendAfterMinutes; }
+bool Config::getEnforceBreak() const { return m_enforceBreak; }
 
 // Setters
 void Config::setWorkDuration(int duration) { m_workDuration = duration; }

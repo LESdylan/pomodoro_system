@@ -1,0 +1,14 @@
+# PAM service for the Pomodoro break overlay's "type your password to skip" prompt.
+# Installed to /etc/pam.d/pomodoro by install-service.sh (best-effort, needs sudo).
+#
+# It simply defers to the system's standard auth stack. The include filename differs
+# by distro: Debian/Ubuntu use "common-auth", Fedora/Arch/openSUSE use "system-auth".
+# Keep whichever line matches your distro and delete the other (harmless if the missing
+# one errors, but cleaner to leave only the correct one).
+
+auth     include    system-auth
+account  include    system-auth
+
+# Debian / Ubuntu equivalent:
+# auth     include    common-auth
+# account  include    common-account
