@@ -160,3 +160,26 @@
 [Fri Jun 20 13:12:25 2025] Break starting for 1 minutes
 [Fri Jun 20 13:13:29 2025] Break completed - back to work!
 [Fri Jun 20 13:13:31 2025] Starting work session for 1 minutes
+[Mon Jun 22 20:37:40 2026] Pomodoro Timer Starting...
+[Mon Jun 22 20:37:40 2026] Configuration loaded - work: 25min, break: 5min
+[Mon Jun 22 20:37:40 2026] Starting work session for 25 minutes
+[Mon Jun 22 20:54:14 2026] Pomodoro Timer Starting...
+[Mon Jun 22 20:54:14 2026] Configuration loaded - work: 25min, break: 5min
+[Mon Jun 22 20:54:14 2026] TEST BREAK: running the real break logic for 20s
+[Mon Jun 22 20:54:39 2026] Break complete; session auto-unlocked
+[Mon Jun 22 20:54:39 2026] TEST BREAK: complete - back to work!
+[Mon Jun 22 20:55:04 2026] Pomodoro Timer Starting...
+[Mon Jun 22 20:55:04 2026] Configuration loaded - work: 25min, break: 5min
+[Mon Jun 22 20:55:04 2026] TEST BREAK: running the real break logic for 20s
+[Mon Jun 22 20:55:29 2026] Break complete; session auto-unlocked
+[Mon Jun 22 20:55:29 2026] TEST BREAK: complete - back to work!
+[Mon Jun 22 21:08:00 2026] Pomodoro Timer Starting...
+[Mon Jun 22 21:08:00 2026] Configuration loaded - work: 25min, break: 5min
+[Mon Jun 22 21:08:00 2026] TEST BREAK: running the real break logic for 20s
+[Mon Jun 22 21:08:25 2026] Break complete; session auto-unlocked
+[Mon Jun 22 21:08:25 2026] TEST BREAK: complete - back to work!
+[Mon Jun 22 21:09:45 2026] Pomodoro Timer Starting...
+[Mon Jun 22 21:09:45 2026] Configuration loaded - work: 25min, break: 5min
+[Mon Jun 22 21:09:45 2026] TEST BREAK: running the real break logic for 20s
+[Mon Jun 22 21:10:10 2026] Break complete; session auto-unlocked
+[Mon Jun 22 21:10:10 2026] TEST BREAK: complete - back to work!
