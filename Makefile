@@ -25,6 +25,13 @@ $(OVERLAY_TARGET): $(SRCDIR)/overlay_timer_qt.cpp
 notifier-image:
 	docker build -t pomodoro-notifier:latest ./notifier
 
+# Trigger the real break logic now (locks the screen ~20s) and prove background
+# processes keep running. Override the duration: make test SECS=30
+SECS ?= 20
+test: $(TARGET)
+	@chmod +x scripts/test-break.sh
+	@sh scripts/test-break.sh $(SECS)
+
 install-service: $(TARGET) $(OVERLAY_TARGET)
 	chmod +x install-service.sh
 	./install-service.sh
@@ -44,4 +51,4 @@ fclean: clean
 
 re: fclean all
 
-.PHONY: all clean re install-service uninstall-service notifier-image
+.PHONY: all clean re install-service uninstall-service notifier-image test

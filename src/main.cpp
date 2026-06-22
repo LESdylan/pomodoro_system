@@ -359,6 +359,33 @@ namespace {
 	}
 
 	/**
+	 * @brief --test-break: run the EXACT break sequence the daemon uses, once, now.
+	 *
+	 * Same path as a real break (notify + notifier + lock + sleep-inhibitor + auto-unlock),
+	 * just triggered immediately with a short duration so behaviour can be verified without
+	 * waiting for a full work session.
+	 */
+	int runTestBreak(int seconds, Config& config, Notification& notification, AppState* appState)
+	{
+		logMessage("TEST BREAK: running the real break logic for " +
+				   intToString(seconds) + "s", appState);
+		notification.showNotification(config.getBreakMessage());
+		notification.playSound(config.getBreakSound());
+		runNotifier("break-start", "Test break - " + intToString(seconds) + "s");
+
+		runEnforcedBreak(seconds, config, appState, config.getOverlayPrompt());
+
+		if (!appState->running)
+			return 0;
+
+		logMessage("TEST BREAK: complete - back to work!", appState);
+		notification.showNotification("Break time is over! Get back to work!");
+		notification.playSound(config.getWorkSound());
+		runNotifier("back-to-work", "Focus for " + intToString(config.getWorkDuration()) + " min");
+		return 0;
+	}
+
+	/**
 	 * @brief Main daemon loop for running Pomodoro sessions
 	 */
 	void runDaemon(AppState* appState, Config& config, Timer& timer, Notification& notification)
@@ -438,8 +465,21 @@ int main(int argc, char **argv)
 	
 	Timer timer(config.getWorkDuration(), config.getBreakDuration());
 	Notification notification;
-	
+
+	// Test mode: trigger the real break logic immediately (optional seconds, default 20).
+	for (int i = 1; i < argc; ++i) {
+		if (std::string(argv[i]) == "--test-break") {
+			int secs = 20;
+			if (i + 1 < argc) {
+				const int v = atoi(argv[i + 1]);
+				if (v > 0)
+					secs = v;
+			}
+			return runTestBreak(secs, config, notification, &g_appState);
+		}
+	}
+
 	runDaemon(&g_appState, config, timer, notification);
-	
+
 	return 0;
 }

@@ -26,6 +26,7 @@ def event_copy(event, detail):
     """Return the per-event presentation data."""
     if event == "break-start":
         return {
+            "event": event,
             "emoji": "\U0001F345",  # tomato
             "title": "Break time",
             "headline": "Time to step away",
@@ -37,6 +38,7 @@ def event_copy(event, detail):
             "ntfy_priority": "default",
         }
     return {  # back-to-work (default)
+        "event": event,
         "emoji": "⏰",  # alarm clock
         "title": "Back to work",
         "headline": "Break's over -- back to focus",
@@ -128,6 +130,9 @@ def send_email(c):
 
 
 def send_ntfy(c):
+    # The phone push is only useful to call you BACK -- skip it at break start.
+    if c.get("event") == "break-start":
+        return False, "ntfy skipped (only notifies on back-to-work)"
     topic = os.environ.get("NTFY_TOPIC")
     if not topic:
         return False, "ntfy skipped (NTFY_TOPIC not set)"
